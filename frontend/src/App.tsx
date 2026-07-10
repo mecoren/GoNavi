@@ -1,4 +1,4 @@
-﻿import Modal from './components/common/ResizableDraggableModal';
+import Modal from './components/common/ResizableDraggableModal';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Layout, Button, ConfigProvider, theme, message, Spin, Slider, Progress, Switch, Input, InputNumber, Select, Segmented, Tooltip, Alert } from 'antd';
 import { PlusOutlined, ConsoleSqlOutlined, UploadOutlined, DownloadOutlined, CloudDownloadOutlined, BugOutlined, ToolOutlined, GlobalOutlined, InfoCircleOutlined, GithubOutlined, SkinOutlined, CheckOutlined, MinusOutlined, BorderOutlined, CloseOutlined, SettingOutlined, LinkOutlined, BgColorsOutlined, AppstoreOutlined, RobotOutlined, FolderOpenOutlined, HddOutlined, SafetyCertificateOutlined, SwitcherOutlined, CodeOutlined, RightOutlined, TableOutlined, MenuOutlined, PoweroffOutlined, TagOutlined, UserOutlined, UpCircleOutlined, MessageOutlined, FileTextOutlined, SyncOutlined, SendOutlined } from '@ant-design/icons';
@@ -4708,6 +4708,23 @@ function App() {
                                       </div>
                                   </div>
                               ))}
+                          </div>
+                          <div style={{ height: 1, background: dividerColor, margin: '18px 0' }} />
+                          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', alignItems: 'center', gap: 16 }}>
+                              <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 15, fontWeight: 600, color: overlayTheme.titleText, lineHeight: 1.45 }}>
+                                      {t('app.about.field.update_prompt_enabled')}
+                                  </div>
+                                  <div style={{ ...utilityMutedTextStyle, lineHeight: 1.55, maxWidth: 360, marginTop: 4 }}>
+                                      {t('app.about.field.update_prompt_enabled_hint')}
+                                  </div>
+                              </div>
+                              <Switch
+                                  checked={appearance.updatePromptEnabled}
+                                  onChange={(checked) => {
+                                      setAppearance({ updatePromptEnabled: checked });
+                                  }}
+                              />
                           </div>
                       </div>
                       <div style={{ borderTop: `1px solid ${dividerColor}`, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 10, color: hasUpdate ? (darkMode ? '#86efac' : '#16a34a') : mutedText, fontWeight: 700 }}>

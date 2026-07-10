@@ -1,7 +1,7 @@
 export const TABLE_OVERVIEW_RENDER_BATCH_SIZE = 300;
 
-export type TableOverviewSortField = 'name' | 'rows' | 'dataSize';
-export type TableOverviewSortOrder = 'asc' | 'desc';
+export type TableOverviewSortField = "name" | "rows" | "dataSize" | "indexSize";
+export type TableOverviewSortOrder = "asc" | "desc" | "none";
 
 export interface TableOverviewFilterRow {
   name: string;
@@ -9,6 +9,9 @@ export interface TableOverviewFilterRow {
   rows: number;
   dataSize: number;
   indexSize: number;
+  engine?: string;
+  createTime?: string;
+  updateTime?: string;
 }
 
 export interface TableOverviewSearchIndexItem<T extends TableOverviewFilterRow> {
@@ -31,21 +34,28 @@ export const filterAndSortTableOverviewRows = <T extends TableOverviewFilterRow>
   sortField: TableOverviewSortField,
   sortOrder: TableOverviewSortOrder,
 ): T[] => {
-  const keyword = String(rawSearchText || '').trim().toLowerCase();
+  const keyword = String(rawSearchText || "").trim().toLowerCase();
   const matched = keyword
     ? indexedRows.filter((item) => item.searchText.includes(keyword))
     : [...indexedRows];
 
+  // none 状态：不排序，保留原始顺序（pinned 优先）
+  if (sortOrder === "none") {
+    return matched.map((item) => item.row);
+  }
+
   matched.sort((a, b) => {
     let cmp = 0;
-    if (sortField === 'name') {
+    if (sortField === "name") {
       cmp = a.sortName.localeCompare(b.sortName);
-    } else if (sortField === 'rows') {
+    } else if (sortField === "rows") {
       cmp = a.row.rows - b.row.rows;
-    } else if (sortField === 'dataSize') {
+    } else if (sortField === "dataSize") {
       cmp = a.row.dataSize - b.row.dataSize;
+    } else if (sortField === "indexSize") {
+      cmp = a.row.indexSize - b.row.indexSize;
     }
-    return sortOrder === 'asc' ? cmp : -cmp;
+    return sortOrder === "asc" ? cmp : -cmp;
   });
 
   return matched.map((item) => item.row);

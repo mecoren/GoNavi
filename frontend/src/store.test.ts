@@ -106,7 +106,7 @@ describe('store appearance persistence', () => {
     expect(useStore.getState().appearance.uiVersion).toBe('v2');
 
     const persisted = JSON.parse(storage.getItem('lite-db-storage') || '{}');
-    expect(persisted.version).toBe(14);
+    expect(persisted.version).toBe(15);
     expect(persisted.state.appearance.uiVersion).toBe('v2');
   });
 

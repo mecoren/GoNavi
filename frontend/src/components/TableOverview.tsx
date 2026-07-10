@@ -1,10 +1,10 @@
 import Modal from './common/ResizableDraggableModal';
 import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Input, Spin, Empty, Dropdown, message, Tooltip, Button } from 'antd';
+import { Input, Spin, Empty, Dropdown, message, Tooltip, Button, Popover, Checkbox } from 'antd';
 import type { MenuProps } from 'antd';
-import { TableOutlined, SearchOutlined, ReloadOutlined, SortAscendingOutlined, DatabaseOutlined, ConsoleSqlOutlined, EditOutlined, CopyOutlined, SaveOutlined, DeleteOutlined, ExportOutlined, AppstoreOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
-import { buildSidebarTablePinKey, useStore } from '../store';
+import { TableOutlined, SearchOutlined, ReloadOutlined, SortAscendingOutlined, DatabaseOutlined, ConsoleSqlOutlined, EditOutlined, CopyOutlined, SaveOutlined, DeleteOutlined, ExportOutlined, AppstoreOutlined, UnorderedListOutlined, WarningOutlined, BarsOutlined, RightOutlined, SettingOutlined } from '@ant-design/icons';
+import { buildSidebarTablePinKey, useStore, DEFAULT_TABLE_OVERVIEW_COMPACT_COLUMNS } from '../store';
 import { DBGetTables, DBQuery, DBShowCreateTable, ExportTableWithOptions, DropTable, RenameTable } from '../../wailsjs/go/app/App';
 import type { TabData } from '../types';
 import { useAutoFetchVisibility } from '../utils/autoFetchVisibility';
@@ -47,7 +47,7 @@ interface TableStatRow {
 
 type SortField = TableOverviewSortField;
 type SortOrder = TableOverviewSortOrder;
-type ViewMode = 'card' | 'list';
+type ViewMode = 'card' | 'list' | 'compact';
 type OverviewContextMenuState = {
     tableName: string;
     x: number;
@@ -107,6 +107,20 @@ const formatRows = (count: number): string => {
     if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
     return String(count);
 };
+
+// 紧凑视图列 key 联合类型（含主列与可选次要列）
+type CompactColumnKey = 'name' | 'engine' | 'rows' | 'dataSize' | 'indexSize' | 'relativeSize' | 'comment' | 'createTime' | 'updateTime';
+
+// 紧凑视图列设置中可选的全部列（顺序即默认展示顺序；次要列默认不勾选）
+// 注：render 使用闭包捕获 theme 变量，实际定义在组件内部以便访问 darkMode/textPrimary 等
+const COMPACT_COLUMN_KEYS: CompactColumnKey[] = ['name', 'engine', 'rows', 'dataSize', 'indexSize', 'relativeSize', 'comment', 'createTime', 'updateTime'];
+
+// 次要列（默认折叠到行内展开面板）
+const COMPACT_SECONDARY_COLUMNS: Array<{ key: string; labelKey: string }> = [
+    { key: 'comment', labelKey: 'table_overview.compact.column.comment' },
+    { key: 'createTime', labelKey: 'table_overview.compact.column.create_time' },
+    { key: 'updateTime', labelKey: 'table_overview.compact.column.update_time' },
+];
 
 const isOverviewTablePinned = (
     pinnedKeys: string[],
@@ -266,8 +280,18 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
     const [loading, setLoading] = useState(true);
     const [searchText, setSearchText] = useState('');
     const [sortField, setSortField] = useState<SortField>('name');
-    const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-    const [viewMode, setViewMode] = useState<ViewMode>(isV2Ui ? 'card' : 'list');
+    const [sortOrder, setSortOrder] = useState<SortOrder>('none');
+    // viewMode 从 store 读取并持久化，紧凑视图为默认模式
+    const tableOverviewViewMode = useStore(state => state.appearance.tableOverviewViewMode);
+    const tableOverviewCompactColumns = useStore(state => state.appearance.tableOverviewCompactColumns);
+    const setAppearance = useStore(state => state.setAppearance);
+    const viewMode: ViewMode = tableOverviewViewMode;
+    const setViewMode = useCallback((next: ViewMode) => {
+        setAppearance({ tableOverviewViewMode: next });
+    }, [setAppearance]);
+    // 紧凑视图行展开状态（哪些表名对应的行被展开）
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+    const [columnCustomizerOpen, setColumnCustomizerOpen] = useState(false);
     const [v2ContextMenu, setV2ContextMenu] = useState<OverviewContextMenuState | null>(null);
     const { exportProgressModal, runExportWithProgress } = useExportProgressDialog();
     const v2ContextMenuPortalRef = useRef<HTMLDivElement | null>(null);
@@ -795,17 +819,20 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
     const accentColor = '#1677ff';
     const containerBg = darkMode ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.01)';
 
+    // 三态排序循环：asc → desc → none → asc
     const toggleSort = (field: SortField) => {
         if (sortField === field) {
-            setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+            setSortOrder(o => o === 'asc' ? 'desc' : o === 'desc' ? 'none' : 'asc');
         } else {
             setSortField(field);
-            setSortOrder(field === 'name' ? 'asc' : 'desc');
+            setSortOrder('asc');
         }
     };
 
     const getSortMenuLabel = (field: SortField, labelKey: string) => {
-        const suffix = sortField === field ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : '';
+        const suffix = sortField === field
+            ? (sortOrder === 'asc' ? ' ↑' : sortOrder === 'desc' ? ' ↓' : '')
+            : '';
         return `${t(labelKey)}${suffix}`;
     };
 
@@ -813,7 +840,103 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
         { key: 'name', label: getSortMenuLabel('name', 'table_overview.sort.name'), onClick: () => toggleSort('name') },
         { key: 'rows', label: getSortMenuLabel('rows', 'table_overview.sort.rows'), onClick: () => toggleSort('rows') },
         { key: 'dataSize', label: getSortMenuLabel('dataSize', 'table_overview.sort.size'), onClick: () => toggleSort('dataSize') },
+        { key: 'indexSize', label: getSortMenuLabel('indexSize', 'table_overview.sort.index_size'), onClick: () => toggleSort('indexSize') },
     ];
+
+    // 紧凑视图：根据用户持久化的列偏好计算可见列
+    const visibleColumns = useMemo<CompactColumnKey[]>(() => {
+        return COMPACT_COLUMN_KEYS.filter(key => tableOverviewCompactColumns.includes(key));
+    }, [tableOverviewCompactColumns]);
+
+    // 紧凑视图：切换列可见性（至少保留一列）
+    const toggleColumnVisible = useCallback((key: CompactColumnKey) => {
+        const current = [...tableOverviewCompactColumns];
+        const idx = current.indexOf(key);
+        if (idx >= 0) {
+            if (current.length <= 1) return;
+            current.splice(idx, 1);
+        } else {
+            current.push(key);
+        }
+        setAppearance({ tableOverviewCompactColumns: current });
+    }, [tableOverviewCompactColumns, setAppearance]);
+
+    // 紧凑视图：切换行展开
+    const toggleRowExpanded = useCallback((tableName: string) => {
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(tableName)) {
+                next.delete(tableName);
+            } else {
+                next.add(tableName);
+            }
+            return next;
+        });
+    }, []);
+
+    const getCompactColumnLabel = (key: CompactColumnKey): string => {
+        const labelMap: Record<CompactColumnKey, string> = {
+            name: t('table_overview.compact.column.name'),
+            engine: t('table_overview.compact.column.engine'),
+            rows: t('table_overview.compact.column.rows'),
+            dataSize: t('table_overview.compact.column.data_size'),
+            indexSize: t('table_overview.compact.column.index_size'),
+            relativeSize: t('table_overview.compact.column.relative_size'),
+            comment: t('table_overview.compact.column.comment'),
+            createTime: t('table_overview.compact.column.create_time'),
+            updateTime: t('table_overview.compact.column.update_time'),
+        };
+        return labelMap[key] || key;
+    };
+
+    const isCompactColumnSortable = (key: CompactColumnKey): boolean => {
+        return key === 'name' || key === 'rows' || key === 'dataSize' || key === 'indexSize';
+    };
+
+    const getCompactColumnSortField = (key: CompactColumnKey): SortField | null => {
+        switch (key) {
+            case 'name': return 'name';
+            case 'rows': return 'rows';
+            case 'dataSize': return 'dataSize';
+            case 'indexSize': return 'indexSize';
+            default: return null;
+        }
+    };
+
+    const renderCompactColumnValue = (table: TableStatRow, key: CompactColumnKey) => {
+        switch (key) {
+            case 'name':
+                return <span style={{ fontWeight: 500, color: textPrimary }}>{table.name}</span>;
+            case 'engine':
+                return <span style={{ color: textSecondary }}>{table.engine || '—'}</span>;
+            case 'rows':
+                return <span style={{ color: textSecondary }}>{formatRows(table.rows)}</span>;
+            case 'dataSize':
+                return <span style={{ color: textSecondary }}>{formatSize(table.dataSize)}</span>;
+            case 'indexSize':
+                return <span style={{ color: textSecondary }}>{formatSize(table.indexSize)}</span>;
+            case 'relativeSize': {
+                const combined = table.dataSize + table.indexSize;
+                const pct = maxCombinedSize > 0 ? Math.max(2, Math.round((combined / maxCombinedSize) * 100)) : 0;
+                return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ flex: 1, height: 6, borderRadius: 3, background: darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: accentColor }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: textMuted, minWidth: 32 }}>{pct}%</span>
+                    </div>
+                );
+            }
+            case 'comment':
+                return <span style={{ color: textSecondary }}>{table.comment || '—'}</span>;
+            case 'createTime':
+                return <span style={{ color: textSecondary, fontSize: 12 }}>{table.createTime || '—'}</span>;
+            case 'updateTime':
+                return <span style={{ color: textSecondary, fontSize: 12 }}>{table.updateTime || '—'}</span>;
+            default:
+                return null;
+        }
+    };
 
     const totalRows = useMemo(() => tables.reduce((s, t) => s + t.rows, 0), [tables]);
     const totalSize = useMemo(() => tables.reduce((s, t) => s + t.dataSize + t.indexSize, 0), [tables]);
@@ -1244,6 +1367,147 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
         );
     };
 
+    // 紧凑视图：固定表头（含列标题、排序指示器、列设置入口）
+    const renderCompactHeader = () => {
+        const colCount = visibleColumns.length;
+        return (
+            <div style={{
+                position: 'relative',
+                zIndex: 20,
+                display: 'grid',
+                gridTemplateColumns: `28px repeat(${colCount}, minmax(0, 1fr)) 32px`,
+                alignItems: 'center',
+                height: 34,
+                fontSize: 12,
+                fontWeight: 600,
+                background: darkMode ? 'rgba(30,30,30,0.98)' : 'rgba(248,248,248,0.98)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                borderBottom: `1px solid ${cardBorder}`,
+            }}>
+                <div />
+                {visibleColumns.map(key => {
+                    const sortable = isCompactColumnSortable(key);
+                    const sortFieldForCol = getCompactColumnSortField(key);
+                    const isActive = sortable && sortField === sortFieldForCol && sortOrder !== 'none';
+                    const indicator = isActive ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : '';
+                    return (
+                        <div
+                            key={key}
+                            onClick={sortable && sortFieldForCol ? () => toggleSort(sortFieldForCol) : undefined}
+                            style={{
+                                cursor: sortable ? 'pointer' : 'default',
+                                userSelect: 'none',
+                                color: isActive ? accentColor : textSecondary,
+                                padding: '0 8px',
+                            }}
+                        >
+                            {getCompactColumnLabel(key)}{indicator}
+                        </div>
+                    );
+                })}
+                <Popover
+                    open={columnCustomizerOpen}
+                    onOpenChange={setColumnCustomizerOpen}
+                    trigger="click"
+                    placement="bottomRight"
+                    content={
+                        <div style={{ minWidth: 200 }}>
+                            <div style={{ fontWeight: 600, marginBottom: 8 }}>{t('table_overview.compact.column_customizer.title')}</div>
+                            <div style={{ fontSize: 12, color: textMuted, marginBottom: 10 }}>{t('table_overview.compact.column_customizer.hint')}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                {COMPACT_COLUMN_KEYS.map(key => (
+                                    <Checkbox
+                                        key={key}
+                                        checked={tableOverviewCompactColumns.includes(key)}
+                                        onChange={() => toggleColumnVisible(key)}
+                                    >
+                                        {getCompactColumnLabel(key)}
+                                    </Checkbox>
+                                ))}
+                            </div>
+                            <div style={{ marginTop: 10 }}>
+                                <Button
+                                    size="small"
+                                    onClick={() => {
+                                        setAppearance({ tableOverviewCompactColumns: [...DEFAULT_TABLE_OVERVIEW_COMPACT_COLUMNS] });
+                                    }}
+                                >
+                                    {t('table_overview.compact.column_customizer.reset')}
+                                </Button>
+                            </div>
+                        </div>
+                    }
+                >
+                    <div style={{ cursor: 'pointer', display: 'flex', justifyContent: 'center' }}>
+                        <SettingOutlined style={{ fontSize: 13, color: textMuted }} />
+                    </div>
+                </Popover>
+            </div>
+        );
+    };
+
+    // 紧凑视图：行内展开面板（显示次要信息）
+    const renderCompactExpandedPanel = (table: TableStatRow) => {
+        return (
+            <div style={{
+                padding: '8px 12px 8px 40px',
+                fontSize: 12,
+                background: darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
+                borderBottom: `1px solid ${cardBorder}`,
+            }}>
+                {COMPACT_SECONDARY_COLUMNS.map(({ key, labelKey }) => {
+                    const value = (table as any)[key];
+                    return (
+                        <div key={key} style={{ display: 'grid', gridTemplateColumns: '80px minmax(0, 1fr)', gap: 12, padding: '3px 0' }}>
+                            <div style={{ color: textMuted }}>{t(labelKey)}</div>
+                            <div style={{ color: textSecondary, overflowWrap: 'anywhere' }}>{value || '—'}</div>
+                        </div>
+                    );
+                })}
+            </div>
+        );
+    };
+
+    // 紧凑视图：单行渲染
+    const renderCompactRow = (table: TableStatRow) => {
+        const isExpanded = expandedRows.has(table.name);
+        return (
+            <React.Fragment key={table.name}>
+                <div
+                    onDoubleClick={() => openTableByDefaultAction(table.name)}
+                    onContextMenu={isV2Ui ? (event) => openV2OverviewContextMenu(event, table) : undefined}
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: `28px repeat(${visibleColumns.length}, minmax(0, 1fr)) 32px`,
+                        alignItems: 'center',
+                        height: 32,
+                        fontSize: 13,
+                        borderBottom: `1px solid ${cardBorder}`,
+                        cursor: 'pointer',
+                        transition: 'background 0.12s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.025)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                    <div
+                        onClick={(e) => { e.stopPropagation(); toggleRowExpanded(table.name); }}
+                        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'center', color: textMuted }}
+                    >
+                        <RightOutlined style={{ fontSize: 10, transition: 'transform 0.15s', transform: isExpanded ? 'rotate(90deg)' : 'none' }} />
+                    </div>
+                    {visibleColumns.map(key => (
+                        <div key={key} style={{ padding: '0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {renderCompactColumnValue(table, key)}
+                        </div>
+                    ))}
+                    <div />
+                </div>
+                {isExpanded && renderCompactExpandedPanel(table)}
+            </React.Fragment>
+        );
+    };
+
     if (loading) {
         return (
             <div className={isV2Ui ? 'gn-v2-table-overview gn-v2-table-overview-loading' : undefined} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: containerBg }}>
@@ -1305,10 +1569,34 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
                             <UnorderedListOutlined style={{ fontSize: 14 }} />
                         </div>
                     </Tooltip>
+                    <Tooltip title={t('table_overview.tooltip.compact_view')}>
+                        <div
+                            onClick={() => setViewMode('compact')}
+                            style={{
+                                padding: '3px 7px', borderRadius: 5, cursor: 'pointer', transition: 'all 0.15s',
+                                background: viewMode === 'compact' ? (darkMode ? 'rgba(255,255,255,0.12)' : '#fff') : 'transparent',
+                                boxShadow: viewMode === 'compact' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                color: viewMode === 'compact' ? accentColor : textMuted,
+                            }}
+                        >
+                            <BarsOutlined style={{ fontSize: 14 }} />
+                        </div>
+                    </Tooltip>
                 </div>
                 <Tooltip title={t('table_overview.tooltip.refresh')}><ReloadOutlined onClick={loadData} style={{ fontSize: 16, color: textSecondary, cursor: 'pointer' }} /></Tooltip>
             </div>
 
+            {/* 紧凑视图：表头置于滚动容器之外，作为独立常驻子项（flexShrink:0）。
+                彻底规避 position:sticky 在嵌套 flex + 外层 overflow:hidden 结构下失效/抖动的问题，
+                列对齐由相同的 grid 模板与左右 16px padding 保证。 */}
+            {sortedFiltered.length > 0 && viewMode === 'compact' && (
+                <div
+                    className={isV2Ui ? 'gn-v2-table-overview-compact-header' : undefined}
+                    style={{ flexShrink: 0, padding: '0 16px' }}
+                >
+                    {renderCompactHeader()}
+                </div>
+            )}
             {/* Content Area */}
             <div className={isV2Ui ? 'gn-v2-table-overview-content' : undefined} style={{ flex: 1, overflow: 'auto', padding: '0 16px 16px 16px' }}>
                 {sortedFiltered.length > 0 && (isSearchPending || visibleOverview.hiddenCount > 0 || deferredSearchText.trim()) && (
@@ -1342,6 +1630,16 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
                 {sortedFiltered.length === 0 ? (
                     <Empty description={searchText ? t('table_overview.empty.no_matches') : t('table_overview.empty.no_tables')} style={{ marginTop: 80 }} />
                 ) : (
+                    viewMode === 'compact' ? (
+                        <div>
+                            {visibleTableSections.map((section) => (
+                                <React.Fragment key={section.key}>
+                                    {pinnedOverview.pinnedRows.length > 0 && renderOverviewSectionTitle(section)}
+                                    {section.rows.map(renderCompactRow)}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    ) : (
                     <div className={isV2Ui ? 'gn-v2-table-overview-sections' : undefined}>
                         {visibleTableSections.map((section) => (
                             <section key={section.key} className={isV2Ui ? 'gn-v2-table-overview-section' : undefined}>
@@ -1362,6 +1660,7 @@ const TableOverview: React.FC<TableOverviewProps> = ({ tab }) => {
                             </section>
                         ))}
                     </div>
+                    )
                 )}
                 {sortedFiltered.length > 0 && visibleOverview.hiddenCount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'center', padding: '16px 0 4px' }}>

@@ -136,6 +136,7 @@ export const DataGridV2DdlView: React.FC<DataGridV2DdlViewProps> = ({
     </div>
     <div className="gn-v2-data-grid-ddl-code">
       <Editor
+        gonaviSqlEditor
         height="100%"
         gonaviTypography="code"
         language="sql"
@@ -147,7 +148,6 @@ export const DataGridV2DdlView: React.FC<DataGridV2DdlViewProps> = ({
           domReadOnly: true,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
-          wordWrap: 'off',
           tabSize: 2,
           automaticLayout: true,
           mouseStyle: 'default',

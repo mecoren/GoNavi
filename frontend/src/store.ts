@@ -130,11 +130,23 @@ export interface AppearanceSettings extends DataGridDisplaySettings {
   newQuerySqlTemplate: string | null;
   tabDisplay: TabDisplaySettings;
   redisDbAliases: RedisDbAliasMap;
+  // 表概览页紧凑视图相关偏好
+  tableOverviewViewMode: "card" | "list" | "compact";
+  tableOverviewCompactColumns: string[];
+  // SQL 编辑器全局自动换行开关
+  sqlEditorWordWrap: boolean;
+  // 应用更新提示开关（关闭后停止自动后台检查）
+  updatePromptEnabled: boolean;
 }
 
 export const DEFAULT_V2_SIDEBAR_RAIL_SCALE = 1.0;
 export const MIN_V2_SIDEBAR_RAIL_SCALE = 1.0;
 export const MAX_V2_SIDEBAR_RAIL_SCALE = 1.8;
+
+// 紧凑视图默认展示的列 key 列表（"类型"映射到 engine 字段，"相对大小"为占比百分比）
+export const DEFAULT_TABLE_OVERVIEW_COMPACT_COLUMNS: string[] = [
+  "name", "engine", "rows", "dataSize", "indexSize", "relativeSize",
+];
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   uiVersion: "v2",
@@ -153,6 +165,11 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   tabDisplay: DEFAULT_TAB_DISPLAY_SETTINGS,
   redisDbAliases: DEFAULT_REDIS_DB_ALIASES,
   ...DEFAULT_DATA_GRID_DISPLAY_SETTINGS,
+  // 紧凑视图 / word wrap / 更新提示 默认值
+  tableOverviewViewMode: "compact",
+  tableOverviewCompactColumns: [...DEFAULT_TABLE_OVERVIEW_COMPACT_COLUMNS],
+  sqlEditorWordWrap: true,
+  updatePromptEnabled: true,
 };
 const DEFAULT_UI_SCALE = 1.0;
 const MIN_UI_SCALE = 0.8;
@@ -217,7 +234,7 @@ const MIN_KEEPALIVE_INTERVAL_MINUTES = 1;
 const MAX_KEEPALIVE_INTERVAL_MINUTES = 1440;
 const DEFAULT_DIAGNOSTIC_TIMEOUT_SECONDS = 15;
 const MAX_DIAGNOSTIC_TIMEOUT_SECONDS = 300;
-const PERSIST_VERSION = 14;
+const PERSIST_VERSION = 15;
 const UI_VERSION_V2_MIGRATION_VERSION = 14;
 const PERSIST_STORAGE_KEY = "lite-db-storage";
 const PERSIST_WRITE_DEBOUNCE_MS = 160;
@@ -2351,6 +2368,25 @@ const sanitizeAppearance = (
     sidebarTreeFontSize: dataGridDisplaySettings.sidebarTreeFontSize,
     sidebarTreeFontSizeFollowGlobal:
       dataGridDisplaySettings.sidebarTreeFontSizeFollowGlobal,
+    // 紧凑视图模式：未识别值回退到默认 compact
+    tableOverviewViewMode:
+      appearance.tableOverviewViewMode === "card" ||
+      appearance.tableOverviewViewMode === "list" ||
+      appearance.tableOverviewViewMode === "compact"
+        ? appearance.tableOverviewViewMode
+        : DEFAULT_APPEARANCE.tableOverviewViewMode,
+    // 紧凑视图列配置：仅保留字符串元素，空值回退默认列
+    tableOverviewCompactColumns: Array.isArray(appearance.tableOverviewCompactColumns)
+      ? appearance.tableOverviewCompactColumns.filter(
+          (c): c is string => typeof c === "string" && c.length > 0,
+        )
+      : [...DEFAULT_TABLE_OVERVIEW_COMPACT_COLUMNS],
+    sqlEditorWordWrap: typeof appearance.sqlEditorWordWrap === "boolean"
+      ? appearance.sqlEditorWordWrap
+      : DEFAULT_APPEARANCE.sqlEditorWordWrap,
+    updatePromptEnabled: typeof appearance.updatePromptEnabled === "boolean"
+      ? appearance.updatePromptEnabled
+      : DEFAULT_APPEARANCE.updatePromptEnabled,
   };
   if (version < 2 && isLegacyDefaultAppearance(appearance)) {
     return { ...DEFAULT_APPEARANCE };

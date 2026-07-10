@@ -208,6 +208,7 @@ const DataGridModals: React.FC<DataGridModalsProps> = ({
       </div>
       {cellEditorOpen && (
         <Editor
+          gonaviSqlEditor
           height="56vh"
           language={cellEditorIsJson ? 'json' : 'plaintext'}
           theme={darkMode ? 'transparent-dark' : 'transparent-light'}
@@ -216,7 +217,6 @@ const DataGridModals: React.FC<DataGridModalsProps> = ({
           options={{
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            wordWrap: 'on',
             fontSize: 14,
             tabSize: 2,
             automaticLayout: true,
@@ -269,6 +269,7 @@ const DataGridModals: React.FC<DataGridModalsProps> = ({
       </div>
       {jsonEditorOpen && (
         <Editor
+          gonaviSqlEditor
           height="56vh"
           language="json"
           theme={darkMode ? 'transparent-dark' : 'transparent-light'}
@@ -278,7 +279,6 @@ const DataGridModals: React.FC<DataGridModalsProps> = ({
             readOnly: false,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            wordWrap: 'off',
             fontSize: 12,
             tabSize: 2,
             automaticLayout: true,
@@ -304,6 +304,7 @@ const DataGridModals: React.FC<DataGridModalsProps> = ({
     >
       {ddlModalOpen && (
         <Editor
+          gonaviSqlEditor
           height="56vh"
           language="sql"
           theme={darkMode ? 'transparent-dark' : 'transparent-light'}
@@ -312,7 +313,6 @@ const DataGridModals: React.FC<DataGridModalsProps> = ({
             readOnly: true,
             minimap: { enabled: false },
             scrollBeyondLastLine: false,
-            wordWrap: 'off',
             fontSize: 12,
             tabSize: 2,
             automaticLayout: true,

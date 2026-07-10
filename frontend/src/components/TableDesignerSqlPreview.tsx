@@ -267,6 +267,7 @@ const TableDesignerSqlPreview: React.FC<TableDesignerSqlPreviewProps> = ({
         `}
       </style>
       <Editor
+        gonaviSqlEditor
         beforeMount={registerSqlPreviewThemes}
         defaultLanguage="sql"
         height={height}
@@ -282,7 +283,6 @@ const TableDesignerSqlPreview: React.FC<TableDesignerSqlPreviewProps> = ({
           padding: { top: 8, bottom: 8 },
           readOnly: true,
           scrollBeyondLastLine: false,
-          wordWrap: 'on',
         }}
         theme={darkMode ? SQL_PREVIEW_DARK_THEME : SQL_PREVIEW_LIGHT_THEME}
         value={sql}

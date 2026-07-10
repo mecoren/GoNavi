@@ -1093,6 +1093,7 @@ const DefinitionViewer: React.FC<DefinitionViewerProps> = ({ tab }) => {
             )}
             <div style={{ flex: 1, minHeight: 0 }}>
                 <Editor
+                    gonaviSqlEditor
                     path={editorModelPath}
                     height="100%"
                     language="sql"
@@ -1108,7 +1109,6 @@ const DefinitionViewer: React.FC<DefinitionViewerProps> = ({ tab }) => {
                         lineNumbersMinChars: 4,
                         stickyScroll: { enabled: false },
                         scrollBeyondLastLine: false,
-                        wordWrap: 'on',
                         automaticLayout: true,
                     }}
                 />

@@ -3381,17 +3381,17 @@ END;`;
                         children: (
                         <div className={isV2Ui ? 'gn-v2-designer-ddl-shell' : undefined} style={{ height: '100%', minHeight: 320, border: `1px solid ${panelFrameColor}`, borderRadius: panelRadius, background: panelBodyBg }}>
                             <Editor
-                                height="100%"
-                                language="sql"
-                                theme={darkMode ? 'transparent-dark' : 'transparent-light'}
-                                value={ddl}
-                                options={{
-                                    readOnly: true,
-                                    minimap: { enabled: false },
-                                    fontSize: 14,
-                                    lineNumbers: 'on',
-                                    scrollBeyondLastLine: true,
-                                    wordWrap: 'on',
+                            gonaviSqlEditor
+                            height="100%"
+                            language="sql"
+                            theme={darkMode ? 'transparent-dark' : 'transparent-light'}
+                            value={ddl}
+                            options={{
+                                readOnly: true,
+                                minimap: { enabled: false },
+                                fontSize: 14,
+                                lineNumbers: 'on',
+                                scrollBeyondLastLine: true,
                                     automaticLayout: true,
                                     padding: { top: 8, bottom: 24 },
                                 }}
@@ -3652,6 +3652,7 @@ END;`;
                     </div>
                     <div style={{ border: `1px solid ${panelFrameColor}`, borderRadius: panelRadius, background: panelBodyBg }}>
                         <Editor
+                            gonaviSqlEditor
                             height="350px"
                             language="sql"
                             theme={darkMode ? 'transparent-dark' : 'transparent-light'}
@@ -3662,7 +3663,6 @@ END;`;
                                 fontSize: 14,
                                 lineNumbers: 'on',
                                 scrollBeyondLastLine: false,
-                                wordWrap: 'on',
                                 automaticLayout: true,
                             }}
                         />
@@ -3690,17 +3690,17 @@ END;`;
             </div>
             <div style={{ border: `1px solid ${panelFrameColor}`, borderRadius: panelRadius, background: panelBodyBg }}>
                 <Editor
-                    height="350px"
-                    language="sql"
-                    theme={darkMode ? 'vs-dark' : 'light'}
-                    value={triggerEditSql}
-                    onChange={(val) => setTriggerEditSql(val || '')}
-                    options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        lineNumbers: 'on',
-                        scrollBeyondLastLine: false,
-                        wordWrap: 'on',
+                            gonaviSqlEditor
+                            height="350px"
+                            language="sql"
+                            theme={darkMode ? 'vs-dark' : 'light'}
+                            value={triggerEditSql}
+                            onChange={(val) => setTriggerEditSql(val || '')}
+                            options={{
+                                minimap: { enabled: false },
+                                fontSize: 14,
+                                lineNumbers: 'on',
+                                scrollBeyondLastLine: false,
                         automaticLayout: true,
                     }}
                 />

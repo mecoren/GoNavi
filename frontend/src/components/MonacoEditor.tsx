@@ -538,11 +538,14 @@ const ensureMonacoConfigured = (): Promise<void> => {
 
 interface MonacoEditorProps extends EditorProps {
   gonaviTypography?: GonaviMonacoTypography;
+  // 标识为 GoNavi SQL 编辑器，启用全局 wordWrap 注入
+  gonaviSqlEditor?: boolean;
 }
 
 const MonacoEditor: React.FC<MonacoEditorProps> = ({
   beforeMount,
   gonaviTypography = 'code',
+  gonaviSqlEditor = false,
   loading,
   onMount,
   options,
@@ -554,6 +557,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   const dataTableFontSizeFollowGlobal = useStore((state) => state.appearance.dataTableFontSizeFollowGlobal);
   const monoFontFamily = useStore((state) => state.appearance.customMonoFontFamily);
   const globalFontSize = useStore((state) => state.fontSize);
+  const sqlEditorWordWrap = useStore((state) => state.appearance.sqlEditorWordWrap);
 
   useEffect(() => {
     let cancelled = false;
@@ -593,6 +597,7 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
       return {
         ...options,
         editContext: false,
+        ...(gonaviSqlEditor ? { wordWrap: sqlEditorWordWrap ? 'on' as const : 'off' as const } : {}),
       };
     }
 
@@ -617,14 +622,18 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
       fontFamily: options?.fontFamily ?? monoFontFamily ?? DEFAULT_MONO_FONT_FAMILY,
       fontSize: options?.fontSize ?? resolvedFontSize,
       lineHeight: options?.lineHeight ?? Math.max(18, Math.round(effectiveEditorFontSize * 1.62)),
+      // SQL 编辑器：全局 wordWrap 注入（store 值优先于 options 中的 wordWrap）
+      ...(gonaviSqlEditor ? { wordWrap: sqlEditorWordWrap ? 'on' as const : 'off' as const } : {}),
     };
   }, [
     dataTableFontSize,
     dataTableFontSizeFollowGlobal,
     globalFontSize,
+    gonaviSqlEditor,
     gonaviTypography,
     monoFontFamily,
     options,
+    sqlEditorWordWrap,
     uiVersion,
   ]);
 

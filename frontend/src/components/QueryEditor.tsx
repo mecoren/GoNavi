@@ -3474,6 +3474,20 @@ const QueryEditor: React.FC<{ tab: TabData; isActive?: boolean }> = ({ tab, isAc
       }
       editor.updateOptions?.(buildQueryEditorMonacoOptions(isObjectEditQueryTab));
 
+      // 注册右键菜单：切换自动换行
+      editor.addAction({
+          id: 'gonavi-toggle-wordwrap',
+          label: translate('editor.toggle_wordwrap'),
+          contextMenuGroupId: '2_wordwrap',
+          contextMenuOrder: 1,
+          run: () => {
+              const current = useStore.getState().appearance.sqlEditorWordWrap;
+              useStore.getState().setAppearance({ sqlEditorWordWrap: !current });
+              // 立即生效（不等 re-render）
+              editor.updateOptions({ wordWrap: !current ? 'on' : 'off' });
+          },
+      });
+
       aiInlineGhostVisibleContextKeyRef.current = editor.createContextKey?.(
           QUERY_EDITOR_AI_INLINE_CONTEXT_KEY,
           false,
@@ -8036,10 +8050,11 @@ const QueryEditor: React.FC<{ tab: TabData; isActive?: boolean }> = ({ tab, isAc
           className={isV2Ui ? 'gn-v2-query-monaco-shell gn-query-monaco-shell' : 'gn-query-monaco-shell'}
           style={{ flex: '1 1 auto', minHeight: 0, minWidth: 0 }}
         >
-          <Editor 
-            height="100%" 
+          <Editor
+            height="100%"
             gonaviTypography="code"
-            defaultLanguage="sql" 
+            gonaviSqlEditor
+            defaultLanguage="sql"
             theme={darkMode ? "transparent-dark" : "transparent-light"}
             defaultValue={query}
             onChange={(val) => {

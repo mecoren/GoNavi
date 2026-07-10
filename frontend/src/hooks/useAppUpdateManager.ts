@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 
 import { message } from 'antd';
 import { EventsOn } from '../../wailsjs/runtime';
 import { resolveAboutDisplayVersion } from '../utils/appVersionDisplay';
+import { useStore } from '../store';
 
 type Translator = (key: string, params?: Record<string, any>) => string;
 
@@ -142,6 +143,8 @@ export const useAppUpdateManager = ({
   const updateDownloadMetaRef = useRef<UpdateDownloadResultData | null>(null);
   const updateNotifiedVersionRef = useRef<string | null>(null);
   const updateMutedVersionRef = useRef<string | null>(null);
+  // 读取持久化的更新提示开关，用于门控自动后台检查定时器
+  const updatePromptEnabled = useStore((state) => state.appearance.updatePromptEnabled);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const isAboutOpenRef = useRef(false);
 
@@ -609,6 +612,8 @@ export const useAppUpdateManager = ({
   }, [loadUpdateChannel]);
 
   useEffect(() => {
+    // 用户关闭更新提示后，不启动自动后台检查定时器；手动按钮仍可正常调用 checkForUpdates(false)
+    if (!updatePromptEnabled) return;
     const startupTimer = window.setTimeout(() => {
       void checkForUpdates(true);
     }, 2000);
@@ -619,7 +624,7 @@ export const useAppUpdateManager = ({
       window.clearTimeout(startupTimer);
       window.clearInterval(interval);
     };
-  }, [checkForUpdates]);
+  }, [checkForUpdates, updatePromptEnabled]);
 
   useEffect(() => {
     let offDownloadProgress: any = null;
